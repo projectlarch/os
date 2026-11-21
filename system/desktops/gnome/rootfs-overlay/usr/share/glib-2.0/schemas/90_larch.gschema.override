@@ -40,3 +40,21 @@ sort-directories-first=true
 
 [org.gtk.Settings.FileChooser]
 sort-directories-first=true
+
+# No virtual-terminal switching (Ctrl+Alt+F1…F12): there are no text consoles
+# (logind.conf.d/10-larch-no-vt.conf), so the other VTs are blank. Also stops
+# the keys flipping between the login screen and a session; switching users
+# from the system menu still works (logind, not these keys).
+[org.gnome.mutter.wayland.keybindings]
+switch-to-session-1=[]
+switch-to-session-2=[]
+switch-to-session-3=[]
+switch-to-session-4=[]
+switch-to-session-5=[]
+switch-to-session-6=[]
+switch-to-session-7=[]
+switch-to-session-8=[]
+switch-to-session-9=[]
+switch-to-session-10=[]
+switch-to-session-11=[]
+switch-to-session-12=[]
