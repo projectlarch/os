@@ -39,8 +39,9 @@
 # not even on a desktop switch: /etc's account overlay, LARCHCONF's /etc files
 # and directories and /var's (accounts, networks, printers, every setting)
 # carry over as they are. The new image's system users are added on its first
-# boot by systemd-sysusers (its /usr is newer than the overlay's .updated
-# stamp). Reset LARCH OS is the clean slate.
+# boot by systemd-sysusers (which runs at every boot: a switched-to desktop's
+# layer can be older than the overlay's .updated stamp). Reset LARCH OS is
+# the clean slate.
 
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 

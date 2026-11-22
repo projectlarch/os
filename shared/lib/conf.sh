@@ -189,9 +189,9 @@ apply_machine_config() {
 # seed_layers <image-root> <config-dir> <username> <conf-mount>
 # A fresh LARCHCONF for <image-root>: the identity and account files
 # (apply_machine_config), the image's /etc "up to date" stamp in the overlay
-# — so ConditionNeedsUpdate=/etc (systemd-sysusers) doesn't run on the first
-# boot but does once after each update, whose image has a newer /usr, adding
-# the new release's system accounts — an empty overlay workdir and an empty
+# (ConditionNeedsUpdate=/etc services; systemd-sysusers runs at every boot
+# regardless, systemd-sysusers.service.d/10-larch.conf) — an empty overlay
+# workdir and an empty
 # var/ (mount_etc and mount_var add the image's defaults and directory
 # skeleton at boot).
 seed_layers() {
@@ -216,7 +216,7 @@ LAYERS="etc-overlay etc var"
 # hosts and machine-id, var.new/ is empty (mount_etc and mount_var recreate
 # the rest at boot). So every account — with its password, groups and ID
 # range — and the machine's identity stay exactly as they are; everything
-# else goes. No .updated stamp: systemd-sysusers runs once on the next boot.
+# else goes. No .updated stamp: the ConditionNeedsUpdate=/etc services run once on the next boot.
 # The current layers are left as they are.
 rebuild_layers() {
     rm -rf "$1/var.new" "$1/etc.new" "$1/etc-overlay.new"
