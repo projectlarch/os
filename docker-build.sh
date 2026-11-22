@@ -5,7 +5,7 @@
 #   ./docker-build.sh                      # both → output/system/ + output/larch-installer.iso
 #   ./docker-build.sh system               # the system release files → output/system/
 #   ./docker-build.sh installer            # the installer ISO (needs system stages 2-4)
-#   ./docker-build.sh system --stage 6     # resume a build from a stage
+#   ./docker-build.sh system --stage 7     # resume a build from a stage
 #   ./docker-build.sh installer --only 2   # run exactly one stage
 #   ./docker-build.sh system --to 4        # stop after a stage (4 = the base, enough for the installer)
 #   ./docker-build.sh system --desktop gnome   # only some desktops (or LARCH_DESKTOPS="gnome kde")

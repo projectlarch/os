@@ -1,0 +1,28 @@
+# COSMIC desktop (System76; Fedora's packages) — installed on top of the base
+# (system/config/packages.list) by the builder's dnf (system stage 7), weak
+# dependencies off. Comments and blank lines are ignored.
+
+# ── COSMIC (Wayland) ─────────────────────────────────────────────────────────
+# cosmic-session pulls in the compositor, panel, launcher, app library,
+# settings, files, the greeter (cosmic-greeter on greetd) and the portal.
+cosmic-session
+cosmic-greeter
+cosmic-files
+cosmic-settings
+cosmic-settings-daemon
+cosmic-icon-theme
+# No terminal and no Flatpak store: cosmic-term and cosmic-initial-setup are
+# required by cosmic-session and removed again (remove.list); COSMIC Store
+# (Flatpak) is never installed — the app manager is Sawmill (AppImages).
+
+# Removable drives, phones and network shares in COSMIC Files (as GNOME's).
+gvfs
+gvfs-fuse
+gvfs-smb
+gvfs-mtp
+gvfs-gphoto2
+gvfs-afc
+gvfs-nfs
+
+# ── Portal ───────────────────────────────────────────────────────────────────
+xdg-desktop-portal-cosmic

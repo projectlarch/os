@@ -1,7 +1,7 @@
 #!/bin/bash
 # scripts/setup-desktop.sh — runs INSIDE a desktop's copy of the base rootfs
-# Called by system/build.sh (stage 5) as:
-#   chroot work/desktops/<desktop> /setup-desktop.sh
+# Called by system/build.sh (stage 7) as:
+#   chroot work/merged/<desktop> /setup-desktop.sh   (the desktop layer's build root)
 # after the builder's dnf installed system/desktops/<desktop>/packages.list,
 # with the desktop's setup.sh (if any) as /desktop-setup.sh.
 

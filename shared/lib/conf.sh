@@ -1,6 +1,6 @@
 # shared/lib/conf.sh — what LARCHCONF holds for /etc and /var
 # Sourced by sys.initramfs, the installer, the updater and system/build.sh
-# (stage 6); not executable on its own.
+# (stages 5-7); not executable on its own.
 #
 # LARCHCONF (mounted at /conf on the running system) holds:
 #   etc-overlay/ + etc-overlay-work/
@@ -33,7 +33,7 @@ ACCOUNT_FILES="passwd shadow group gshadow subuid subgid"
 # Everything else in /etc that changes per machine or at runtime lives in
 # LARCHCONF:/etc instead, so nothing else lands in the overlay:
 #   ETC_LINKS  files directly under /etc, each a symlink in the image to
-#              /conf/etc/<file> (system/build.sh stage 6). The image's own
+#              /conf/etc/<file> (system/build.sh etc_links). The image's own
 #              version is kept in ETC_DEFAULTS and copied to /conf/etc when it
 #              lacks it (mount_etc). Writers that replace a file by rename
 #              would put a file in the overlay instead; the ones that do

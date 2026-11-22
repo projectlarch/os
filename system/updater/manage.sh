@@ -6,7 +6,7 @@
 #
 # Accounts are changed with the installed image's own tools (useradd, userdel,
 # chpasswd, unix_chkpwd), chrooted into the image as the running system sees
-# it: sys.squashfs loop-mounted, LARCHCONF on its /conf, /etc overlaid with
+# it: its squashfs layers stacked (shared/lib/sys.sh mount_layers), LARCHCONF on its /conf, /etc overlaid with
 # LARCHCONF's accounts layer and its files and directories in place (conf.sh
 # mount_etc), /var's directories bind-mounted from it (mount_var) exactly as
 # sys.initramfs does, LARCHHOME at /home. So the hashes,
@@ -14,7 +14,7 @@
 # password changed in GNOME (yescrypt) is checked like the lock screen does.
 
 IMG_MNT="$RUN/img"
-IMG_LAYERS="$RUN/img-layers"   # the layers layout's layers, loop-mounted
+IMG_LAYERS="$RUN/img-layers"   # the installed layers, loop-mounted
 mkdir -p "$IMG_MNT" "$IMG_LAYERS"
 IMG_OPEN=0
 
@@ -37,15 +37,10 @@ img_open() {
     TARGET_HOME=$(part_on_disk "$TARGET_DISK" LARCHHOME) \
         || { note "Users" "  No LARCHHOME partition on /dev/$TARGET_DISK."; return 1; }
     conf_mount || return 1
-    # The layers layout (sys/, shared/lib/sys.sh), else the image's sys.squashfs.
-    if _sys=$(sys_dir "$SYS_MNT"); then
-        mount_layers "$_sys" "$IMG_LAYERS" "$IMG_MNT"
-    else
-        mount -t squashfs -o ro,loop "$SYS_MNT/sys.squashfs" "$IMG_MNT"
-    fi || {
-        note "Users" "  Could not mount the installed system."
+    if ! _sys=$(sys_dir "$SYS_MNT") || ! mount_layers "$_sys" "$IMG_LAYERS" "$IMG_MNT"; then
+        note "Users" "  Could not mount the installed system (its layers on LARCHSYS)."
         conf_umount; return 1
-    }
+    fi
     IMG_OPEN=1
     mount --bind "$CONF_MNT" "$IMG_MNT/conf" \
         && mount_etc "$IMG_MNT" "$CONF_MNT" \

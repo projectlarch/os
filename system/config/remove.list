@@ -1,4 +1,5 @@
-# Packages removed from each desktop's rootfs before squashfs (system stage 5):
+# Packages removed from every layer before squashfs — the base (system stage 5),
+# each driver layer (6) and desktop (7), with the layer's own remove.list:
 # `rpm -e --nodeps --noscripts` from the builder, then dnf's autoremove takes
 # out what only they (or nothing) needed. build.sh's library guard fails the
 # build if a library something left in the image links went with them.
@@ -15,17 +16,16 @@ rpm
 rpm-plugin-*
 rpm-sequoia*
 
-# systemd-boot: the bootloader is a release file (stage 9 takes it from the
+# systemd-boot: the bootloader is a release file (stage 11 takes it from the
 # base); nothing in the running system installs or updates it.
 systemd-boot-unsigned
 
-# Pulled in by NVIDIA's packages: grubby (their scriptlet adds kernel arguments
-# to GRUB entries; larch boots systemd-boot with its own entries) and the
-# nvidia-settings GUI (X11-only on Wayland).
+# Pulled in by NVIDIA's packages (the nvidia layer, which applies this list
+# too): grubby (their scriptlet adds kernel arguments to GRUB entries; larch
+# boots systemd-boot with its own entries).
 grubby
 grub2-*
 os-prober
-nvidia-settings*
 
 # Initramfs generators pulled in by the kernel: every larch initramfs is
 # assembled by hand (shared/build-lib.sh).

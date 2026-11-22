@@ -1,0 +1,8 @@
+# COSMIC-specific deletions (appended to config/remove-files.list; same format).
+
+# The SELinux policy greetd-selinux pulled in (remove.list): its config, the
+# compiled policy store and the relabel-at-boot service its scriptlet enabled.
+/etc/selinux/config
+/etc/selinux/config.rpmsave
+/etc/selinux/targeted
+/etc/systemd/system/sysinit.target.wants/selinux-autorelabel-mark.service

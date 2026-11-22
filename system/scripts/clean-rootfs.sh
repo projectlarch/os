@@ -1,8 +1,9 @@
 #!/bin/bash
-# scripts/clean-rootfs.sh — runs INSIDE a desktop's rootfs, the last step before squashfs
-# Called by system/build.sh (stage 5), after the builder removed remove.list's
-# packages and the orphans, with the base + desktop remove-files.list as
-# /remove-files.list and the desktop's launcher.list (if any) as /launcher.list.
+# scripts/clean-rootfs.sh — runs INSIDE a layer's build root, the last step before squashfs
+# Called by system/build.sh (strip_root: the base, stage 5; each driver layer, 6;
+# each desktop, 7), after the builder removed remove.list's
+# packages and the orphans, with the base + layer remove-files.list as
+# /remove-files.list and a desktop's launcher.list (if any) as /launcher.list.
 # build.sh's library guard checks the result afterwards.
 
 set -euo pipefail

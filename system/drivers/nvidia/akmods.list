@@ -1,0 +1,11 @@
+# The NVIDIA layer's out-of-tree kernel module (same format as
+# system/config/akmods.list): one line per akmod, followed by the userspace
+# packages installed together with its kmod. Built by system/build.sh
+# (stage 6) in the builder against the base's kernel, installed into this
+# layer only.
+#
+# NVIDIA 580: the last branch that supports Pascal (GTX 10xx) through Ada;
+# RPM Fusion's current branch (590+) dropped Pascal.
+# cuda-libs: CUDA, OpenCL and the PTX JIT for AppImage apps (Blender, …), which
+# use the host's NVIDIA userspace; NVENC/NVDEC/OptiX come with the driver's -libs.
+akmod-nvidia-580xx   xorg-x11-drv-nvidia-580xx xorg-x11-drv-nvidia-580xx-power xorg-x11-drv-nvidia-580xx-cuda-libs

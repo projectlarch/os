@@ -1,0 +1,7 @@
+# Paths deleted from the nvidia layer (system/build.sh stage 6, scripts/clean-rootfs.sh),
+# besides system/config/remove-files.list, which every layer applies.
+
+# ── NVIDIA: X.Org driver bits (there is no X server) ─────────────────────────
+/usr/lib64/xorg/modules/drivers/nvidia_drv.so
+/usr/lib64/nvidia/xorg
+/usr/bin/nvidia-xconfig

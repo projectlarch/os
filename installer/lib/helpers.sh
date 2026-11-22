@@ -1,13 +1,13 @@
 # installer/lib/helpers.sh — installer constants and helpers
 # Sourced by install.sh after the shared libraries (ui.sh, hw.sh, net.sh,
-# release.sh, conf.sh); not executable on its own.
+# release.sh, conf.sh, sys.sh); not executable on its own.
 
 # LARCHEFI holds the kernel, sys.initramfs, updater.initramfs (with every
 # network driver and its firmware) and systemd-boot — and room for a second
 # copy of each, since an update copies the new files beside the old ones.
 EFI_PART_SIZE="1GiB"
-# LARCHSYS (ext4) holds sys.squashfs — and the next release's files while an
-# update downloads them.
+# LARCHSYS (ext4) holds sys/, the OS root's squashfs layers — and the next
+# release's files while an update downloads them.
 SYS_PART_SIZE="4GiB"
 # LARCHCONF holds /etc's account overlay, /etc's per-machine files and
 # directories and /var's writable directories, i.e. all runtime state

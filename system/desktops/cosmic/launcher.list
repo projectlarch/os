@@ -1,0 +1,6 @@
+# Launchers shown in the COSMIC app library; every other .desktop entry in the
+# image gets NoDisplay=true (scripts/clean-rootfs.sh) — including COSMIC
+# Settings' one entry per page. Software comes from Sawmill (AppImages).
+com.system76.CosmicFiles.desktop
+com.system76.CosmicSettings.desktop
+io.sawmill.Store.desktop

@@ -41,7 +41,7 @@ install-deps: ## Install host-side tools for QEMU testing (the build itself only
 ## ── Incremental rebuild targets ──────────────────────────────────────────────
 
 .PHONY: squashfs
-squashfs: ## Rebuild the desktop images and release files (system stages 5+) after rootfs edits
+squashfs: ## Rebuild the layers and release files (system stages 5+) after rootfs edits
 	$(BUILD) system --stage 5
 
 ## ── Docker build modes ───────────────────────────────────────────────────────

@@ -7,8 +7,8 @@
 # ./docker-build.sh to launch it; its arguments are forwarded here.
 #
 # Two builds, each in its own directory:
-#   system     system/build.sh    → output/system/ (sys-<desktop>.squashfs per
-#                                   desktop, vmlinuz, sys.initramfs,
+#   system     system/build.sh    → output/system/ (base.squashfs, a squashfs
+#                                   per driver layer and desktop, vmlinuz, sys.initramfs,
 #                                   updater.initramfs, BOOTX64.EFI,
 #                                   loader.tar, SHA256SUMS)
 #   installer  installer/build.sh → output/larch-installer.iso

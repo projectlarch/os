@@ -24,19 +24,16 @@
 #      ask which one. Any desktop can be picked: that is how the desktop is
 #      switched.
 #   3. Download its files (shared/lib/release.sh) into LARCHSYS:/.staging and
-#      verify them against SHA256SUMS; check that the image is Larch OS with
-#      that desktop and that kernel, both initramfs and the image's modules
-#      belong together.
-#   4. Swap everything in: sys.squashfs by an ext4 rename on LARCHSYS, the
-#      kernel, sys.initramfs, updater.initramfs, systemd-boot (BOOTX64.EFI) and
-#      its entries (loader.tar) on LARCHEFI (each copied beside the old file,
-#      then renamed). Until step 4 the installed system is untouched.
-#
-# Releases in the layers format (shared/lib/release.sh, sys.sh: base, driver
-# and desktop squashfs layers) are installed into LARCHSYS:/sys/ instead
-# (install_layers, an ext4 directory swap); once their boot files are in
-# place too, the image format's sys.squashfs, version and desktop are deleted.
-# This updater reads and opens either layout.
+#      verify them against SHA256SUMS: the base layer, this computer's driver
+#      layers (detected again at every update, shared/lib/sys.sh
+#      wanted_drivers) and the desktop's; check that the stacked layers are
+#      Larch OS with that desktop, all from one build, and that the kernel,
+#      both initramfs and the base's modules belong together.
+#   4. Swap everything in: the layers by swapping LARCHSYS:/sys.new and sys
+#      (ext4 renames, sys.sh install_layers), the kernel, sys.initramfs,
+#      updater.initramfs, systemd-boot (BOOTX64.EFI) and its entries
+#      (loader.tar) on LARCHEFI (each copied beside the old file, then
+#      renamed). Until step 4 the installed system is untouched.
 #
 # No partitioning, and the update mounts neither LARCHHOME nor LARCHCONF —
 # not even on a desktop switch: /etc's account overlay, LARCHCONF's /etc files
@@ -115,10 +112,8 @@ fsck_ext4 "$TARGET_SYS" \
     || die "The system partition /dev/$TARGET_SYS has file system errors that need a manual fsck."
 mount -t ext4 "/dev/$TARGET_SYS" "$SYS_MNT" || die "Could not mount the system partition /dev/$TARGET_SYS."
 mount -t vfat "/dev/$TARGET_EFI" "$EFI_MNT" || die "Could not mount the EFI partition /dev/$TARGET_EFI."
-# The layers layout (sys/), else the image layout's files at the root.
-CURRENT_SYS=$(sys_dir "$SYS_MNT") || CURRENT_SYS="$SYS_MNT"
+CURRENT_SYS=$(sys_dir "$SYS_MNT") || CURRENT_SYS="$SYS_MNT/$SYS_DIR"
 CURRENT_VERSION=$(cat "$CURRENT_SYS/version" 2>/dev/null || true)
-# Installs from before desktops were selectable are GNOME.
 CURRENT_DESKTOP=$(cat "$CURRENT_SYS/desktop" 2>/dev/null || echo gnome)
 CURRENT="larch-$CURRENT_DESKTOP-${CURRENT_VERSION:-unknown}"
 # Left over from an interrupted update.
@@ -143,19 +138,17 @@ update_system() {
       desktop misbehaves, Reset LARCH OS returns the system settings
       to how they were right after installation."
         fi
-        _drv=""
-        [ "$REL_FORMAT" != layers ] || _drv="
-      Driver layers    : ${WANT_DRIVERS:-none}"
         dialog --colors --backtitle "$DIALOG_BT" --title " Update " \
             --yes-label "Install" --no-label "Back" \
             --yesno "\
       Installed        : $CURRENT
-      New              : $REL_NAME$_drv
+      New              : $REL_NAME
+      Driver layers    : ${WANT_DRIVERS:-none}
       Download         : $(( REL_SIZE / 1048576 )) MB
       System partition : /dev/$TARGET_SYS
 
       The system files are replaced once the download is verified.
-      Your files and apps are kept.$_switch_note" $(( (SWITCH ? 19 : 14) + (${#_drv} > 0) )) 74 \
+      Your files and apps are kept.$_switch_note" $(( SWITCH ? 20 : 15 )) 74 \
             || continue
         if [ "$(free_bytes "$SYS_MNT")" -lt $(( REL_SIZE + 64 * 1048576 )) ]; then
             note "Not enough space" "  The system partition has $(( $(free_bytes "$SYS_MNT") / 1048576 )) MB free; this release needs\n  $(( REL_SIZE / 1048576 + 64 )) MB to download next to the installed system."
@@ -183,24 +176,10 @@ install_release() {
     # same entry.
 
     msg "Installing" "Installing $REL_NAME..."
-    if [ "$REL_FORMAT" = layers ]; then
-        install_layers "$STAGE" "$SYS_MNT" "$REL_LAYERS" "$NEW_VERSION" "$REL_DESKTOP" \
-            || die "Could not install the new system layers on /dev/$TARGET_SYS. Reboot and pick \"Manage LARCH\" → \"Update LARCH\" to retry."
-        install_boot_files "$STAGE" "$EFI_MNT" \
-            || die "Could not install the new kernel and bootloader on LARCHEFI (/dev/$TARGET_EFI). Reboot and pick \"Manage LARCH\" → \"Update LARCH\" to retry."
-        # The image layout's files: until the new boot files were in place,
-        # the old ones booted them.
-        rm -f "$SYS_MNT/sys.squashfs" "$SYS_MNT/version" "$SYS_MNT/desktop"
-    else
-        mv -f "$STAGE/$SYS_IMG" "$SYS_MNT/sys.squashfs" \
-            || die "Could not replace sys.squashfs on /dev/$TARGET_SYS. The installed system is unchanged."
-        sync
-        install_boot_files "$STAGE" "$EFI_MNT" \
-            || die "Could not install the new kernel and bootloader on LARCHEFI (/dev/$TARGET_EFI). Reboot and pick \"Manage LARCH\" → \"Update LARCH\" to retry."
-        printf '%s\n' "$NEW_VERSION" > "$SYS_MNT/version"
-        printf '%s\n' "$REL_DESKTOP" > "$SYS_MNT/desktop"
-        rm -rf "$SYS_MNT/$SYS_DIR" "$SYS_MNT/$SYS_DIR.new" "$SYS_MNT/$SYS_DIR.old"
-    fi
+    install_layers "$STAGE" "$SYS_MNT" "$REL_LAYERS" "$NEW_VERSION" "$REL_DESKTOP" \
+        || die "Could not install the new system layers on /dev/$TARGET_SYS. Reboot and pick \"Manage LARCH\" → \"Update LARCH\" to retry."
+    install_boot_files "$STAGE" "$EFI_MNT" \
+        || die "Could not install the new kernel and bootloader on LARCHEFI (/dev/$TARGET_EFI). Reboot and pick \"Manage LARCH\" → \"Update LARCH\" to retry."
     rm -rf "$STAGE"
     sync
     umount "$EFI_MNT" 2>/dev/null || true

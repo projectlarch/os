@@ -2,12 +2,8 @@
 # packages installed together with its kmod (they require it).
 # system/build.sh (stage 4) builds each akmod's kmod RPM with akmodsbuild IN
 # THE BUILDER, against the rootfs's kernel, and installs the RPMs into the
-# rootfs: no compiler or kernel headers ever enter the image.
+# rootfs: no compiler or kernel headers ever enter the image. Driver layers
+# (system/drivers/<layer>/akmods.list) are built the same way, into their layer.
 #
-# NVIDIA 580: the last branch that supports Pascal (GTX 10xx) through Ada;
-# RPM Fusion's current branch (590+) dropped Pascal.
-# cuda-libs: CUDA, OpenCL and the PTX JIT for AppImage apps (Blender, …), which
-# use the host's NVIDIA userspace; NVENC/NVDEC/OptiX come with the driver's -libs.
-akmod-nvidia-580xx   xorg-x11-drv-nvidia-580xx xorg-x11-drv-nvidia-580xx-power xorg-x11-drv-nvidia-580xx-cuda-libs
 # Broadcom BCM4360 Wi-Fi (2015 MacBook Air): no open-source driver.
 akmod-wl             broadcom-wl

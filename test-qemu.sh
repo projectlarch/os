@@ -50,6 +50,9 @@ if [[ "$LOCAL" -eq 1 ]]; then
     trap 'kill "$server_pid" 2>/dev/null || true' EXIT
     # QEMU's user network reaches the host's loopback as 10.0.2.2.
     local_args=(-fw_cfg "name=opt/larch/source,string=http://10.0.2.2:$LOCAL_PORT")
+    # LARCH_DRIVERS=nvidia|none: the driver layers to install instead of
+    # detecting them (shared/lib/sys.sh wanted_drivers).
+    if [ -n "${LARCH_DRIVERS:-}" ]; then local_args+=(-fw_cfg "name=opt/larch/drivers,string=$LARCH_DRIVERS"); fi
     echo "Serving $LOCAL_DIR to the guest as http://10.0.2.2:$LOCAL_PORT"
 fi
 

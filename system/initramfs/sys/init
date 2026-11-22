@@ -6,8 +6,11 @@
 #
 #   1. Load the bundled storage/input/filesystem drivers (shared/lib/hw.sh).
 #   2. Find LARCHSYS by GPT name; LARCHCONF is the one on the same disk.
-#   3. Mount LARCHSYS (ext4) read-only and loop-mount its sys.squashfs as the
-#      root, read-only — identical on every install.
+#   3. Mount LARCHSYS (ext4) read-only, loop-mount each squashfs layer its
+#      sys/layers names (base, this computer's driver layers, the desktop;
+#      shared/lib/sys.sh) under /run/larch/layers/ and stack them read-only
+#      with overlayfs as the root — identical on every install with the
+#      same layers.
 #   4. fsck and mount LARCHCONF at /conf, overlay /etc with its accounts
 #      layer (conf/etc-overlay), complete conf/etc — the files the image's
 #      /etc links to (hostname, machine-id, …) — with the image's defaults and
@@ -16,7 +19,8 @@
 #      bind-mount conf/var/{lib,log,cache,spool} on /var's (shared/lib/conf.sh
 #      mount_var) — the rest of /var stays the read-only image.
 #   5. Move /dev, /proc, /sys and /run (with LARCHSYS mounted below it, at
-#      /run/larch/sys) into the new root and switch_root to systemd.
+#      /run/larch/sys, and the layers at /run/larch/layers) into the new root
+#      and switch_root to systemd.
 #
 # /etc/fstab lists /conf, the /etc overlay and the /etc and /var binds too (already mounted here), so systemd
 # orders their unmounting at shutdown; /home and the tmpfs mounts are its own.
@@ -25,13 +29,14 @@ set -e
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 RUN=/run/larch
 SYS_MNT=$RUN/sys
+LAYERS_MNT=$RUN/layers
 NEWROOT=/sysroot
 
 mount -t proc     proc     /proc
 mount -t sysfs    sysfs    /sys
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 mount -t tmpfs -o mode=0755,nosuid,nodev tmpfs /run
-mkdir -p "$RUN" "$SYS_MNT"
+mkdir -p "$RUN" "$SYS_MNT" "$LAYERS_MNT"
 
 log() { echo "<6>larch-sys: $*" > /dev/kmsg 2>/dev/null || true; }
 die() {
@@ -43,6 +48,7 @@ die() {
 
 . /usr/lib/larch/hw.sh
 . /usr/lib/larch/conf.sh
+. /usr/lib/larch/sys.sh
 
 log "loading drivers"
 load_drivers 1 || die "Could not load the drivers."
@@ -55,16 +61,18 @@ DISK=$(parent_disk "$SYS_PART")
 CONF_PART=$(part_on_disk "$DISK" LARCHCONF) || die "No LARCHCONF partition on /dev/$DISK."
 log "system /dev/$SYS_PART, config /dev/$CONF_PART"
 
-# ── Root: sys.squashfs on LARCHSYS ───────────────────────────────────────────
+# ── Root: the layers on LARCHSYS ─────────────────────────────────────────────
 mount -t ext4 -o ro "/dev/$SYS_PART" "$SYS_MNT" || die "Could not mount /dev/$SYS_PART."
-[ -f "$SYS_MNT/sys.squashfs" ] || die "/dev/$SYS_PART has no sys.squashfs."
-mount -t squashfs -o ro,loop "$SYS_MNT/sys.squashfs" "$NEWROOT" \
-    || die "Could not mount sys.squashfs."
-# The kernel and this initramfs on LARCHEFI and the image on LARCHSYS are
+# sys/, or sys.old/ if an update's swap was cut off between its renames.
+_sys=$(sys_dir "$SYS_MNT") || die "/dev/$SYS_PART has no system layers (sys/layers)."
+log "layers: $(cat "$_sys/layers") (${_sys##*/})"
+mount_layers "$_sys" "$LAYERS_MNT" "$NEWROOT" \
+    || die "Could not mount the system layers ($(cat "$_sys/layers")) from /dev/$SYS_PART."
+# The kernel and this initramfs on LARCHEFI and the layers on LARCHSYS are
 # replaced together by the updater; if they don't match (an update was cut
 # off between the two), the system's modules won't load.
 [ -d "$NEWROOT/usr/lib/modules/$(uname -r)" ] \
-    || die "sys.squashfs has no modules for the running kernel $(uname -r)."
+    || die "The system layers have no modules for the running kernel $(uname -r)."
 
 # ── /conf, /etc, /var ────────────────────────────────────────────────────────
 fsck_ext4 "$CONF_PART" || log "fsck of /dev/$CONF_PART reported errors"

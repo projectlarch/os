@@ -17,8 +17,10 @@
 #
 #        1. LARCHEFI  (FAT32) — systemd-boot and its entries, larch-os/vmlinuz,
 #                               larch-os/sys.initramfs, larch-os/updater.initramfs
-#        2. LARCHSYS  (ext4)  — sys.squashfs (the chosen desktop's OS root,
-#                               loop-mounted by sys.initramfs), version, desktop
+#        2. LARCHSYS  (ext4)  — sys/: the OS root's squashfs layers (base,
+#                               this computer's driver layers, the chosen
+#                               desktop; stacked by sys.initramfs), version,
+#                               desktop (shared/lib/sys.sh)
 #        3. LARCHCONF (ext4)  — /conf: etc-overlay/ + etc-overlay-work/, the
 #                               upper layer of the /etc overlay, holding only
 #                               the account files; etc/, the files the
@@ -95,6 +97,7 @@ if [ "$AUTO_YES" -ne 1 ]; then
         --backtitle "$DIALOG_BT" --title " Confirm Installation " \
         --yesno "\
   Larch OS         : $REL_NAME$_dl
+  Driver layers    : ${WANT_DRIVERS:-none}
   Full name        : $LARCH_FULLNAME
   Username         : $LARCH_USERNAME
   Hostname         : $LARCH_HOSTNAME
@@ -105,7 +108,7 @@ if [ "$AUTO_YES" -ne 1 ]; then
   Home partition   : $PART4  (ext4, remainder, LARCHHOME)
 
   \Z1WARNING: ALL DATA ON $TARGET_DISK WILL BE DESTROYED.\Zn" \
-        19 72 \
+        20 72 \
         || { TARGET_DISK=""; continue; }
     clear_screen
 fi
@@ -162,21 +165,16 @@ while true; do
 done
 
 show_step "Installing $REL_NAME"
-if [ "$REL_FORMAT" = layers ]; then
-    # Moving the mounted layers' files within LARCHSYS doesn't disturb their loop devices.
-    install_layers "$STAGE" "$MOUNT_SYS" "$REL_LAYERS" "$NEW_VERSION" "$REL_DESKTOP" \
-        || die "Could not install the system layers on $PART2."
-else
-    mv -f "$STAGE/$SYS_IMG" "$MOUNT_SYS/sys.squashfs" || die "Could not install sys.squashfs."
-    printf '%s\n' "$NEW_VERSION" > "$MOUNT_SYS/version"
-    printf '%s\n' "$REL_DESKTOP" > "$MOUNT_SYS/desktop"
-fi
+# The layers stay mounted at $NEW_MNT (check_release): moving their files
+# within LARCHSYS doesn't disturb the loop devices.
+install_layers "$STAGE" "$MOUNT_SYS" "$REL_LAYERS" "$NEW_VERSION" "$REL_DESKTOP" \
+    || die "Could not install the system layers on $PART2."
 install_boot_files "$STAGE" "$MOUNT_EFI" || die "Could not install the kernel and bootloader on $PART1."
 rm -rf "$STAGE"
 sync
 umount "$MOUNT_EFI"
 
-# The image (still mounted at $NEW_MNT by check_release) is where the
+# The layers (still mounted as a root at $NEW_MNT by check_release) are where the
 # identity files and the account names in use come from, and its /etc/skel
 # seeds the home directory.
 MOUNT_IMG="$NEW_MNT"

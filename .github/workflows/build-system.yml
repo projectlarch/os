@@ -5,12 +5,14 @@ name: Build system
 # Release — what the installer ISO and the "Manage LARCH" boot entry download
 # (shared/lib/release.sh):
 #
-#   sys-<desktop>.squashfs (one per system/desktops/<desktop>)
+#   base.squashfs, <driver>.squashfs (one per system/drivers/<driver>),
+#   <desktop>.squashfs (one per system/desktops/<desktop>)
 #   vmlinuz  sys.initramfs  updater.initramfs  BOOTX64.EFI  loader.tar  SHA256SUMS
 #
-# Every desktop is built in this one job from one base rootfs, so all images
-# carry modules for the one kernel the release ships. The installer and the
-# updater list each image as larch-<desktop>-<tag>.
+# Every layer is built in this one job on one base, so they all belong to the
+# one kernel the release ships. The installer and the updater list each
+# desktop as larch-<desktop>-<tag> (with the base and this computer's driver
+# layers).
 #
 #   - Push a version tag (v*)          → build + create a Release with them
 #   - Run manually (workflow_dispatch) → build + upload them as a workflow
@@ -18,8 +20,8 @@ name: Build system
 #
 # The installer ISO is released separately (build-installer.yml, tags
 # installer-v*); the installer and updater only consider releases that carry
-# the kernel, both initramfs, the bootloader, its entries, SHA256SUMS and at
-# least one image.
+# the kernel, both initramfs, the bootloader, its entries, SHA256SUMS, the
+# base layer and at least one desktop layer.
 
 on:
   push:

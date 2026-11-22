@@ -1,5 +1,5 @@
 # GNOME desktop — installed on top of the base (system/config/packages.list)
-# by the builder's dnf (system stage 5), weak dependencies off. Comments and
+# by the builder's dnf (system stage 7), weak dependencies off. Comments and
 # blank lines are ignored.
 
 # ── GNOME (Wayland) ─────────────────────────────────────────────────────────

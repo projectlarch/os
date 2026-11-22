@@ -1,0 +1,18 @@
+# COSMIC-specific removals (appended to config/remove.list; same format).
+#
+# cosmic-session hard-requires them, but larch ships no terminal (software
+# comes from Sawmill), and users are managed only from the boot menu (Manage
+# LARCH → Manage users), so no first-run setup wizard.
+cosmic-term
+cosmic-initial-setup
+
+# cosmic-greeter requires greetd-selinux, which pulls in the whole SELinux
+# policy and its tools. larch runs without SELinux, and with no
+# /etc/selinux/config at all (scripts/setup-chroot.sh: SELINUX=disabled makes
+# systemd hit the kernel's removed runtime-disable switch);
+# remove-files.list deletes what the policy left behind.
+greetd-selinux
+selinux-policy*
+policycoreutils*
+python3-policycoreutils
+libselinux-utils

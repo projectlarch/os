@@ -1,4 +1,4 @@
-# Paths left out of sys.squashfs (stage 6: mksquashfs -wildcards -ef).
+# Paths left out of every layer's squashfs (stage 8: mksquashfs -wildcards -ef).
 # Patterns are relative to the rootfs root; * doesn't match a leading dot,
 # so dotfiles need their own .* line; "... <pattern>" matches at any depth.
 #
@@ -20,12 +20,19 @@ home/*
 home/.*
 
 # Whatever lands in /boot (nothing, with kernel-install's plugins off): the kernel ships as the
-# release's vmlinuz (stage 9) and boots from LARCHEFI, so a copy here is never used.
+# release's vmlinuz (stage 11) and boots from LARCHEFI, so a copy here is never used.
 boot/*
 boot/.*
 
 root/.cache
 
 # Fedora keeps the kernel image beside its modules; it ships as the release's
-# vmlinuz (stage 9, taken from the base), so the images don't need a copy.
+# vmlinuz (stage 11, taken from the base), so the layers don't need a copy.
 usr/lib/modules/*/vmlinuz
+
+# The package databases: kept in the build trees, where each layer above the
+# base is installed by dnf on top of the base's, but never shipped.
+usr/lib/sysimage/rpm
+usr/lib/sysimage/libdnf5
+var/lib/rpm
+var/lib/dnf

@@ -10,6 +10,10 @@
 #
 #   ./test-auto.sh          # fresh install, then first boot (≈ 8 min)
 #   ./test-auto.sh boot     # boot the disk the last run installed again
+#   LARCH_DRIVERS=nvidia ./test-auto.sh   # install these driver layers (or "none")
+#                                         # instead of detecting them (fw_cfg opt/larch/drivers)
+#   LARCH_TEST_DESKTOP=cosmic ./test-auto.sh   # install another desktop than gnome
+#                                         # (also for `boot`: the greeter's login keys differ)
 #
 # Exit status: 0 when the boot logged no error before shutdown other than the
 # known ones in KNOWN_ERRORS below; 1 otherwise (the errors are printed).
@@ -33,6 +37,8 @@ V=$ROOT/work/autotest
 PORT=8088
 FULLNAME="Test User"
 PASSWORD="${LARCH_TEST_PASSWORD:-larchtest}"   # letters and digits only (typed via QMP)
+DRIVERS_CFG=()
+if [ -n "${LARCH_DRIVERS:-}" ]; then DRIVERS_CFG=(-fw_cfg "name=opt/larch/drivers,string=$LARCH_DRIVERS"); fi
 # Errors that are expected on every boot (regexes over the journal message).
 # virt/tdx: printed by the kernel's built-in TDX host code on every CPU without
 # TDX; no parameter disables it, and loglevel=3 keeps it off the screen.
@@ -43,6 +49,19 @@ case "$PHASE" in install|boot) ;; *) echo "usage: $0 [install|boot]" >&2; exit 2
 
 [ -f "$ISO" ] || { echo "No $ISO — run ./docker-build.sh installer first" >&2; exit 1; }
 [ -f "$SYSTEM/SHA256SUMS" ] || { echo "No $SYSTEM — run ./docker-build.sh system first" >&2; exit 1; }
+# The desktop to install: the release menu lists the build's desktop layers
+# in name order and starts on gnome, so the arrow keys get there from it.
+DESKTOP="${LARCH_TEST_DESKTOP:-gnome}"
+mapfile -t DESKTOPS < <(sed -n 's/^[0-9a-f]*  *\([a-z0-9]*\)\.squashfs$/\1/p' "$SYSTEM/SHA256SUMS" \
+    | grep -vx -e base -e nvidia | sort)
+MOVES=""
+for i in "${!DESKTOPS[@]}"; do
+    [ "${DESKTOPS[$i]}" = gnome ] && from=$i
+    [ "${DESKTOPS[$i]}" = "$DESKTOP" ] && to=$i
+done
+[ -n "${to:-}" ] || { echo "No $DESKTOP layer in $SYSTEM" >&2; exit 1; }
+for ((i = ${from:-0}; i < to; i++)); do MOVES="$MOVES down"; done
+for ((i = ${from:-0}; i > to; i--)); do MOVES="$MOVES up"; done
 [ -x work/rootfs/usr/bin/debugfs ] || { echo "No work/rootfs with e2fsprogs — run the system build first" >&2; exit 1; }
 [ -w /dev/kvm ] || { echo "/dev/kvm is not usable: KVM is required" >&2; exit 1; }
 mkdir -p "$V"
@@ -108,7 +127,7 @@ start_vm() {  # start_vm <with installer ISO 0|1>
         -drive "file=$V/disk.qcow2,format=qcow2,if=none,id=disk" -device virtio-blk-pci,drive=disk,bootindex=0 \
         "${iso[@]}" -vga virtio -display none \
         -device virtio-net,netdev=net0 -netdev user,id=net0 \
-        -fw_cfg "name=opt/larch/source,string=http://10.0.2.2:$PORT" \
+        -fw_cfg "name=opt/larch/source,string=http://10.0.2.2:$PORT" ${DRIVERS_CFG[@]+"${DRIVERS_CFG[@]}"} \
         -qmp "unix:$SOCK,server,nowait" -daemonize
     until [ -S "$SOCK" ]; do sleep 0.5; done
 }
@@ -137,7 +156,9 @@ if [ "$PHASE" = install ]; then
     sleep 45;            shot i1-name
     typ "$FULLNAME";     key ret; sleep 2
     typ "$PASSWORD";     key ret; sleep 2
-    typ "$PASSWORD";     key ret; sleep 25; shot i2-release   # network + release list
+    typ "$PASSWORD";     key ret; sleep 25                    # network + release list
+    for k in $MOVES; do key "$k"; sleep 1; done
+    shot i2-release
     key ret; sleep 5;    shot i3-disk
     key ret; sleep 3;    shot i4-confirm
     key ret                                                   # Install
@@ -153,7 +174,10 @@ fi
 
 # ── Login screen, login, shutdown ────────────────────────────────────────────
 sleep 75;                         shot b1-login
-key ret; sleep 3; typ "$PASSWORD"; key ret; sleep 30; shot b2-desktop
+# GDM lists the user first (Enter picks it); COSMIC's greeter starts on the
+# password of the only user.
+if [ "$DESKTOP" = gnome ]; then key ret; sleep 3; fi
+typ "$PASSWORD"; key ret; sleep 30; shot b2-desktop
 stop_vm
 
 # ── The guest's journal ──────────────────────────────────────────────────────

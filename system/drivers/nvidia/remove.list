@@ -1,0 +1,5 @@
+# Packages removed from the nvidia layer after it is installed (system/build.sh
+# stage 6), besides system/config/remove.list, which every layer applies.
+
+# The nvidia-settings GUI: X11-only, and there is no X server.
+nvidia-settings*

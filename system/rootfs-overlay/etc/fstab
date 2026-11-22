@@ -2,7 +2,8 @@
 # Static and identical on every machine: partitions are found by label, so
 # nothing here is per-machine. /tmp is left to systemd's stock tmp.mount.
 #
-# The root is sys.squashfs on LARCHSYS, loop-mounted read-only by sys.initramfs
+# The root is the squashfs layers on LARCHSYS (base, driver layers, desktop),
+# stacked read-only with overlayfs by sys.initramfs
 # (system/initramfs/sys/init), which also mounts — before systemd starts —
 # LARCHCONF at /conf, the overlay and binds on /etc and the binds on /var:
 #

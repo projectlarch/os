@@ -1,16 +1,16 @@
-# Files and directories deleted from each desktop's rootfs before squashfs
-# (stage 5, scripts/clean-rootfs.sh, after remove.list and the orphans). For
+# Files and directories deleted from every layer before squashfs — the base
+# (stage 5), each driver layer (6) and desktop (7) applies this list plus its
+# own (scripts/clean-rootfs.sh, after remove.list and the orphans). For
 # things whose package must stay, and for leftovers no package owns.
 #
 # One absolute path per line, removed recursively (rm -rf); # comments and
 # blank lines are ignored. Shell globs are expanded inside the rootfs; a path
 # or glob that matches nothing is skipped. Don't list "/" or top-level dirs.
 
-# ── Package databases ────────────────────────────────────────────────────────
-/usr/lib/sysimage/rpm
-/usr/lib/sysimage/libdnf5
-/var/lib/rpm
-/var/lib/dnf
+# ── Package manager leftovers ────────────────────────────────────────────────
+# The package databases themselves stay in the build trees (the layers above
+# the base are installed with dnf on top of them) and are left out of every
+# squashfs instead (config/squashfs.exclude).
 /var/cache/dnf
 /var/cache/libdnf5
 /var/cache/akmods
@@ -32,10 +32,6 @@
 /usr/lib/modules/*/source
 /usr/src/*
 
-# ── NVIDIA: X.Org driver bits (there is no X server) ─────────────────────────
-/usr/lib64/xorg/modules/drivers/nvidia_drv.so
-/usr/lib64/nvidia/xorg
-/usr/bin/nvidia-xconfig
 
 # ── Vulkan drivers that never apply on a PC ──────────────────────────────────
 # lvp = software Vulkan; gfxstream/virtio = VM-guest-only; Asahi (Apple

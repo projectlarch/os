@@ -4,7 +4,7 @@
 # builder's dnf installed config/packages.list and the kmods into it.
 # Configures the BASE every desktop image is copied from: locale, identity
 # placeholders, the default user, shared services. Desktop-specific setup lives
-# in system/desktops/<desktop>/ (scripts/setup-desktop.sh, stage 5).
+# in system/desktops/<desktop>/ (scripts/setup-desktop.sh, stage 7).
 
 set -euo pipefail
 
@@ -61,8 +61,8 @@ usermod -aG audio,video,input larch
 # ── Systemd services ─────────────────────────────────────────────────────────
 # The packages' scriptlets applied Fedora's presets; set exactly what larch runs.
 log "Enabling systemd services"
-systemctl enable NetworkManager bluetooth cups.socket avahi-daemon chronyd \
-    switcheroo-control nvidia-suspend nvidia-resume nvidia-hibernate
+# (The NVIDIA services are the nvidia layer's: system/drivers/nvidia/setup.sh.)
+systemctl enable NetworkManager bluetooth cups.socket avahi-daemon chronyd switcheroo-control
 systemctl set-default graphical.target
 # systemd-oomd: Fedora's userspace OOM killer — masked, the kernel's OOM
 # killer is enough (swap is only zram, rootfs-overlay/etc/systemd/zram-generator.conf).
