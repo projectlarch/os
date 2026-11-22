@@ -1,6 +1,16 @@
 # shared/lib/release.sh — list Larch OS releases, download, check, install
-# Sourced by the installer and the updater (after ui.sh and hw.sh); not
-# executable on its own.
+# Sourced by the installer and the updater (after ui.sh and hw.sh; sys.sh and
+# conf.sh before any of its functions run); not executable on its own.
+#
+# Two release formats are understood (REL_FORMAT):
+#   image   one OS root per desktop, sys-<desktop>.squashfs (described below),
+#           installed as LARCHSYS:/sys.squashfs
+#   layers  the OS root as squashfs layers (shared/lib/sys.sh): base.squashfs,
+#           driver layers (nvidia.squashfs, downloaded only where
+#           wanted_drivers says so) and one <desktop>.squashfs per desktop,
+#           installed into LARCHSYS:/sys/ by the updater (install_layers),
+#           which then deletes the image format's files. A release with
+#           base.squashfs is offered in that format only.
 #
 # A system release (.github/workflows/build-system.yml, tag v*) is a GitHub
 # release carrying these files, all built from the same base rootfs:
@@ -34,10 +44,15 @@ SYS_INITRD=sys.initramfs
 UPD_INITRD=updater.initramfs
 BOOT_EFI=BOOTX64.EFI
 LOADER=loader.tar
-SYS_IMG=""              # sys-<desktop>.squashfs of the chosen entry
+SYS_IMG=""              # sys-<desktop>.squashfs of the chosen entry (image format)
+BASE_LAYER=base
+REL_FORMAT=""           # image | layers
+REL_LAYERS=""           # the chosen entry's layers, top first: <desktop> <drivers…> base
+WANT_DRIVERS=""         # the driver layers this computer gets (sys.sh wanted_drivers)
 
-NEW_MNT="$RUN/new"      # a downloaded image, loop-mounted for checks
-mkdir -p "$NEW_MNT"
+NEW_MNT="$RUN/new"      # a downloaded image (or the layers, stacked), mounted for checks
+NEW_LAYERS="$RUN/new-layers"
+mkdir -p "$NEW_MNT" "$NEW_LAYERS"
 
 fetch() { curl -fsSL --cacert "$CA_BUNDLE" --connect-timeout 15 -A larch-os "$@"; }
 
@@ -49,8 +64,10 @@ local_source() {
 
 # Write one line per (release, desktop) to $RUN/releases:
 #   <name> <tag> <desktop> <date> <prerelease> <img> <kernel> <sys-initrd>
-#   <upd-initrd> <efi> <loader>
-# (tab-separated, sizes in bytes; name = larch-<desktop>-<tag>) for the newest
+#   <upd-initrd> <efi> <loader> <base-layer> <driver-layers> <format>
+# (tab-separated, sizes in bytes; <img> the image or the desktop layer,
+# <base-layer>/<driver-layers> 0 for the image format, <driver-layers> the
+# total of WANT_DRIVERS'; name = larch-<desktop>-<tag>) for the newest
 # $RELEASES_SHOWN published releases that carry the kernel, both initramfs,
 # the bootloader, its entries, SHA256SUMS and at least one
 # sys-<desktop>.squashfs (so releases up to v0.5.1, which kept the bootloader
@@ -59,20 +76,34 @@ local_source() {
 # (assets' urls are .../releases/assets/<id>, and quotes inside release notes
 # are escaped, so neither matches).
 list_releases() {
+    WANT_DRIVERS=$(wanted_drivers)
     LOCAL_SOURCE=$(local_source)
     if [ -n "$LOCAL_SOURCE" ]; then
         fetch -o "$RUN/local.sums" "$LOCAL_SOURCE/$SUMS" || return 1
-        sed -n 's/^[0-9a-f]*  *\*\{0,1\}sys-\([a-z0-9]*\)\.squashfs$/\1/p' "$RUN/local.sums" | sort \
-            | while read -r _de; do
-                printf 'larch-%s-local\tlocal\t%s\t%s\t0\t0\t0\t0\t0\t0\t0\n' "$_de" "$_de" "$LOCAL_SOURCE"
-            done > "$RUN/releases"
+        if grep -q "[ *]$BASE_LAYER\.squashfs\$" "$RUN/local.sums"; then
+            sed -n 's/^[0-9a-f]*  *\*\{0,1\}\([a-z0-9]*\)\.squashfs$/\1/p' "$RUN/local.sums" | sort \
+                | while read -r _de; do
+                    case " $BASE_LAYER $DRIVER_LAYERS " in *" $_de "*) continue ;; esac
+                    printf 'larch-%s-local\tlocal\t%s\t%s\t0\t0\t0\t0\t0\t0\t0\t0\t0\tlayers\n' "$_de" "$_de" "$LOCAL_SOURCE"
+                done > "$RUN/releases"
+        else
+            sed -n 's/^[0-9a-f]*  *\*\{0,1\}sys-\([a-z0-9]*\)\.squashfs$/\1/p' "$RUN/local.sums" | sort \
+                | while read -r _de; do
+                    printf 'larch-%s-local\tlocal\t%s\t%s\t0\t0\t0\t0\t0\t0\t0\t0\t0\timage\n' "$_de" "$_de" "$LOCAL_SOURCE"
+                done > "$RUN/releases"
+        fi
         return 0
     fi
     fetch -H 'Accept: application/vnd.github+json' \
         "https://api.github.com/repos/$REPO/releases?per_page=30" -o "$RUN/releases.json" \
         || return 1
     awk -v max="$RELEASES_SHOWN" -v sums="$SUMS" -v k="$KERNEL" \
-        -v si="$SYS_INITRD" -v ui="$UPD_INITRD" -v be="$BOOT_EFI" -v bl="$LOADER" '
+        -v si="$SYS_INITRD" -v ui="$UPD_INITRD" -v be="$BOOT_EFI" -v bl="$LOADER" \
+        -v base="$BASE_LAYER" -v drivers="$DRIVER_LAYERS" -v want="$WANT_DRIVERS" '
+        BEGIN {
+            split(drivers, dl, " "); for (i in dl) isdrv[dl[i]] = 1
+            nw = split(want, wl, " ")
+        }
         function field(s, key,   m) {
             if (!match(s, "\"" key "\" *: *\"[^\"]*\"")) return ""
             m = substr(s, RSTART, RLENGTH)
@@ -100,11 +131,28 @@ list_releases() {
                 tag = field(r, "tag_name"); if (tag == "") continue
                 pre = (r ~ /"prerelease":true/) ? 1 : 0
                 date = substr(field(r, "published_at"), 1, 10)
-                # Every sys-<desktop>.squashfs asset, in name order.
+                # The layers format (base.squashfs + desktop layers, the driver layers this
+                # computer wants required), else the image format.
+                bs = asize(r, base ".squashfs"); ws = 0
+                if (bs) {
+                    fmt = "layers"; ok = 1
+                    for (x = 1; x <= nw; x++) {
+                        s1 = asize(r, wl[x] ".squashfs"); if (!s1) { ok = 0; break }
+                        ws += s1
+                    }
+                    if (!ok) continue
+                } else fmt = "image"
+                # The asset of every desktop (sys-<desktop>.squashfs, or a
+                # <desktop>.squashfs other than the base and the driver
+                # layers), in name order.
                 nd = 0; rest = r
-                while (match(rest, /"name":"sys-[a-z0-9]+\.squashfs"/)) {
-                    d = substr(rest, RSTART + 12, RLENGTH - 22)
+                while (match(rest, /"name":"(sys-)?[a-z0-9]+\.squashfs"/)) {
+                    d = substr(rest, RSTART + 8, RLENGTH - 18)
                     rest = substr(rest, RSTART + RLENGTH)
+                    if (fmt == "image") {
+                        if (substr(d, 1, 4) != "sys-") continue
+                        d = substr(d, 5)
+                    } else if (substr(d, 1, 4) == "sys-" || d == base || (d in isdrv)) continue
                     if (!(d in seen)) { seen[d] = 1; des[++nd] = d }
                 }
                 for (x = 1; x <= nd; x++)
@@ -112,11 +160,11 @@ list_releases() {
                         if (des[y] < des[x]) { t = des[x]; des[x] = des[y]; des[y] = t }
                 got = 0
                 for (x = 1; x <= nd; x++) {
-                    d = des[x]; img = asize(r, "sys-" d ".squashfs")
+                    d = des[x]; img = asize(r, (fmt == "image" ? "sys-" : "") d ".squashfs")
                     if (img) {
                         print "larch-" d "-" tag "\t" tag "\t" d "\t" date "\t" pre "\t" \
                               img "\t" asize(r, k) "\t" asize(r, si) "\t" asize(r, ui) "\t" \
-                              asize(r, be) "\t" asize(r, bl)
+                              asize(r, be) "\t" asize(r, bl) "\t" bs "\t" ws "\t" fmt
                         got = 1
                     }
                 }
@@ -141,8 +189,9 @@ lookup_releases() {
     done
 }
 
-# select_release <name>: REL_NAME, REL_TAG, REL_DESKTOP, REL_DATE, SYS_IMG,
-# REL_IMG_SIZE, REL_BOOT_SIZE (kernel, both initramfs, bootloader, entries) and REL_SIZE
+# select_release <name>: REL_NAME, REL_TAG, REL_DESKTOP, REL_DATE, REL_FORMAT,
+# SYS_IMG (image format) or REL_LAYERS (layers format), REL_IMG_SIZE,
+# REL_BOOT_SIZE (kernel, both initramfs, bootloader, entries) and REL_SIZE
 # (everything) from $RUN/releases.
 select_release() {
     _line=$(awk -F'\t' -v n="$1" '$1 == n { print; exit }' "$RUN/releases")
@@ -151,10 +200,18 @@ select_release() {
     REL_TAG=$(echo "$_line" | cut -f2)
     REL_DESKTOP=$(echo "$_line" | cut -f3)
     REL_DATE=$(echo "$_line" | cut -f4)
-    REL_IMG_SIZE=$(echo "$_line" | cut -f6)
+    REL_FORMAT=$(echo "$_line" | cut -f14)
+    REL_IMG_SIZE=$(echo "$_line" | awk -F'\t' '{ print $6 + $12 + $13 }')
     REL_BOOT_SIZE=$(echo "$_line" | awk -F'\t' '{ print $7 + $8 + $9 + $10 + $11 }')
     REL_SIZE=$(( REL_IMG_SIZE + REL_BOOT_SIZE ))
-    SYS_IMG="sys-$REL_DESKTOP.squashfs"
+    if [ "$REL_FORMAT" = layers ]; then
+        SYS_IMG=""
+        REL_LAYERS=$(echo $REL_DESKTOP $WANT_DRIVERS $BASE_LAYER)
+    else
+        REL_FORMAT=image
+        SYS_IMG="sys-$REL_DESKTOP.squashfs"
+        REL_LAYERS=""
+    fi
 }
 
 # default_release [desktop]: the entry a menu starts on — the newest
@@ -177,11 +234,11 @@ choose_release() {
     _n=$(wc -l < "$RUN/releases")
     _h=$_n; [ "$_h" -le 12 ] || _h=12
     set --
-    while IFS="$TAB" read -r _name _tag _de _date _pre _img _k _si _ui _be _bl; do
+    while IFS="$TAB" read -r _name _tag _de _date _pre _img _k _si _ui _be _bl _bs _ds _fmt; do
         if [ "$_tag" = local ]; then
             _d="local build"
         else
-            _d="$_date   $(( (_img + _k + _si + _ui + _be + _bl) / 1048576 )) MB"
+            _d="$_date   $(( (_img + _k + _si + _ui + _be + _bl + _bs + _ds) / 1048576 )) MB"
         fi
         [ "$_pre" = 1 ] && _d="$_d   pre-release"
         [ "$_name" = "$_installed" ] && _d="$_d   (installed)"
@@ -236,7 +293,15 @@ download_release() {
         return 1
     fi
     _sz() { awk -F'\t' -v n="$REL_NAME" -v c="$1" '$1 == n { print $c }' "$RUN/releases"; }
-    get_asset "$SYS_IMG"    "$1" "$(_sz 6)" "$REL_DESKTOP"       || return 1
+    if [ "$REL_FORMAT" = layers ]; then
+        get_asset "$BASE_LAYER.squashfs" "$1" "$(_sz 12)" "the base system" || return 1
+        for _l in $WANT_DRIVERS; do
+            get_asset "$_l.squashfs" "$1" "$(_sz 13)" "the $_l drivers" || return 1
+        done
+        get_asset "$REL_DESKTOP.squashfs" "$1" "$(_sz 6)" "$REL_DESKTOP" || return 1
+    else
+        get_asset "$SYS_IMG" "$1" "$(_sz 6)" "$REL_DESKTOP" || return 1
+    fi
     get_asset "$KERNEL"     "$1" "$(_sz 7)" "the kernel"         || return 1
     get_asset "$SYS_INITRD" "$1" "$(_sz 8)" "the boot initramfs" || return 1
     get_asset "$UPD_INITRD" "$1" "$(_sz 9)" "the updater"        || return 1
@@ -254,13 +319,16 @@ initrd_kver() {
 # image is a Larch OS root, and both initramfs and the image's modules are for
 # the same kernel (the release's vmlinuz). Lays the bootloader and the loader
 # entries out under <dir>/boot/ as they go on LARCHEFI (install_boot_files).
-# Sets NEW_KVER and NEW_VERSION. Leaves the image mounted at $NEW_MNT for the
-# caller (umount it when done).
+# Sets NEW_KVER and NEW_VERSION. Leaves the image (the layers format: the
+# layers, stacked — all from one build) mounted at $NEW_MNT for the caller
+# (close_release when done).
 check_release() {
     msg "Check" "Checking the downloaded release..."
-    if [ "$(head -c 4 "$1/$SYS_IMG")" != hsqs ]; then
-        note "Check" "  $SYS_IMG is not a squashfs image."; return 1
-    fi
+    for _f in ${SYS_IMG:-} $(for _l in $REL_LAYERS; do echo "$_l.squashfs"; done); do
+        if [ "$(head -c 4 "$1/$_f")" != hsqs ]; then
+            note "Check" "  $_f is not a squashfs image."; return 1
+        fi
+    done
     if [ "$(head -c 2 "$1/$BOOT_EFI")" != MZ ]; then
         note "Check" "  $BOOT_EFI is not an EFI program."; return 1
     fi
@@ -285,18 +353,31 @@ check_release() {
     if [ "$(initrd_kver "$1/$UPD_INITRD")" != "$NEW_KVER" ]; then
         note "Check" "  $UPD_INITRD was not built for the release's kernel ($NEW_KVER)."; return 1
     fi
-    mount -t squashfs -o ro,loop "$1/$SYS_IMG" "$NEW_MNT" \
-        || { note "Check" "  Could not mount the downloaded image."; return 1; }
+    if [ "$REL_FORMAT" = layers ]; then
+        printf '%s\n' "$REL_LAYERS" > "$1/layers"
+        mount_layers "$1" "$NEW_LAYERS" "$NEW_MNT" \
+            || { note "Check" "  Could not mount the downloaded layers ($REL_LAYERS)."; return 1; }
+    else
+        mount -t squashfs -o ro,loop "$1/$SYS_IMG" "$NEW_MNT" \
+            || { note "Check" "  Could not mount the downloaded image."; return 1; }
+    fi
     _err=""
     grep -qx 'ID=larchos' "$NEW_MNT/etc/os-release" 2>/dev/null \
         || _err="The downloaded image is not Larch OS."
     [ -n "$_err" ] || [ "$(cat "$NEW_MNT/usr/lib/larch/desktop" 2>/dev/null)" = "$REL_DESKTOP" ] \
-        || _err="$SYS_IMG is not a $REL_DESKTOP image."
+        || _err="The downloaded system is not a $REL_DESKTOP system."
     [ -n "$_err" ] || [ -d "$NEW_MNT/usr/lib/modules/$NEW_KVER" ] \
         || _err="The image has no modules for the release's kernel ($NEW_KVER)."
     NEW_VERSION=$(cat "$NEW_MNT/usr/lib/larch/version" 2>/dev/null || echo "$REL_TAG")
-    [ -z "$_err" ] || { umount "$NEW_MNT"; note "Check" "  $_err"; return 1; }
+    for _l in $REL_LAYERS; do
+        [ -n "$_err" ] || [ "$(cat "$NEW_MNT/usr/lib/larch/layers/$_l" 2>/dev/null)" = "$NEW_VERSION" ] \
+            || _err="$_l.squashfs is not from the same build as $BASE_LAYER.squashfs."
+    done
+    [ -z "$_err" ] || { close_release; note "Check" "  $_err"; return 1; }
 }
+
+# close_release: unmount what check_release left mounted.
+close_release() { umount_layers "$NEW_MNT" "$NEW_LAYERS"; }
 
 # install_boot_files <dir> <efi-mount>: the kernel, both initramfs, the
 # bootloader and its entries from <dir> onto LARCHEFI. Everything is copied

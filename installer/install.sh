@@ -44,6 +44,7 @@ DIE_TITLE="Installation failed"
 . /usr/lib/larch/net.sh
 . /usr/lib/larch/release.sh
 . /usr/lib/larch/conf.sh
+. /usr/lib/larch/sys.sh
 . /usr/lib/larch/account.sh
 . /usr/lib/larch/helpers.sh
 . /usr/lib/larch/disk.sh
@@ -153,7 +154,7 @@ mount_or_die vfat "$PART1" "$MOUNT_EFI"
 while true; do
     rm -rf "$STAGE"
     download_release "$STAGE" && check_release "$STAGE" && break
-    umount "$NEW_MNT" 2>/dev/null || true
+    close_release
     dialog --backtitle "$DIALOG_BT" --title " Download failed " \
         --yes-label "Retry" --no-label "Reboot" \
         --yesno "\n$REL_NAME could not be downloaded and verified.\n\n$TARGET_DISK has already been erased. Retry the download?" 11 70 \
@@ -161,10 +162,16 @@ while true; do
 done
 
 show_step "Installing $REL_NAME"
-mv -f "$STAGE/$SYS_IMG" "$MOUNT_SYS/sys.squashfs" || die "Could not install sys.squashfs."
+if [ "$REL_FORMAT" = layers ]; then
+    # Moving the mounted layers' files within LARCHSYS doesn't disturb their loop devices.
+    install_layers "$STAGE" "$MOUNT_SYS" "$REL_LAYERS" "$NEW_VERSION" "$REL_DESKTOP" \
+        || die "Could not install the system layers on $PART2."
+else
+    mv -f "$STAGE/$SYS_IMG" "$MOUNT_SYS/sys.squashfs" || die "Could not install sys.squashfs."
+    printf '%s\n' "$NEW_VERSION" > "$MOUNT_SYS/version"
+    printf '%s\n' "$REL_DESKTOP" > "$MOUNT_SYS/desktop"
+fi
 install_boot_files "$STAGE" "$MOUNT_EFI" || die "Could not install the kernel and bootloader on $PART1."
-printf '%s\n' "$NEW_VERSION" > "$MOUNT_SYS/version"
-printf '%s\n' "$REL_DESKTOP" > "$MOUNT_SYS/desktop"
 rm -rf "$STAGE"
 sync
 umount "$MOUNT_EFI"
@@ -244,7 +251,7 @@ chown 0:0 "$MOUNT_HOME/lost+found" 2>/dev/null || true
 
 sync
 umount "$MOUNT_HOME"
-umount "$MOUNT_IMG"
+close_release
 umount "$MOUNT_SYS"
 
 trap - EXIT

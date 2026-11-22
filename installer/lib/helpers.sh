@@ -39,7 +39,7 @@ show_step() {
 
 cleanup() {
     umount "$MOUNT_IMG"  2>/dev/null || true
-    umount "$NEW_MNT"    2>/dev/null || true
+    close_release 2>/dev/null || true
     umount "$MOUNT_EFI"  2>/dev/null || true
     umount "$MOUNT_SYS"  2>/dev/null || true
     umount "$MOUNT_CONF" 2>/dev/null || true

@@ -14,7 +14,8 @@
 # password changed in GNOME (yescrypt) is checked like the lock screen does.
 
 IMG_MNT="$RUN/img"
-mkdir -p "$IMG_MNT"
+IMG_LAYERS="$RUN/img-layers"   # the layers layout's layers, loop-mounted
+mkdir -p "$IMG_MNT" "$IMG_LAYERS"
 IMG_OPEN=0
 
 conf_mount() {
@@ -36,10 +37,15 @@ img_open() {
     TARGET_HOME=$(part_on_disk "$TARGET_DISK" LARCHHOME) \
         || { note "Users" "  No LARCHHOME partition on /dev/$TARGET_DISK."; return 1; }
     conf_mount || return 1
-    if ! mount -t squashfs -o ro,loop "$SYS_MNT/sys.squashfs" "$IMG_MNT"; then
-        note "Users" "  Could not mount the installed system (sys.squashfs)."
+    # The layers layout (sys/, shared/lib/sys.sh), else the image's sys.squashfs.
+    if _sys=$(sys_dir "$SYS_MNT"); then
+        mount_layers "$_sys" "$IMG_LAYERS" "$IMG_MNT"
+    else
+        mount -t squashfs -o ro,loop "$SYS_MNT/sys.squashfs" "$IMG_MNT"
+    fi || {
+        note "Users" "  Could not mount the installed system."
         conf_umount; return 1
-    fi
+    }
     IMG_OPEN=1
     mount --bind "$CONF_MNT" "$IMG_MNT/conf" \
         && mount_etc "$IMG_MNT" "$CONF_MNT" \
@@ -66,7 +72,7 @@ img_close() {
     umount_var "$IMG_MNT"
     umount_etc "$IMG_MNT"
     umount "$IMG_MNT/conf" 2>/dev/null || umount -l "$IMG_MNT/conf" 2>/dev/null || true
-    umount "$IMG_MNT" 2>/dev/null || umount -l "$IMG_MNT" 2>/dev/null || true
+    umount_layers "$IMG_MNT" "$IMG_LAYERS"
     IMG_OPEN=0
     conf_umount
 }
