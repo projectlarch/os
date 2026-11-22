@@ -1,0 +1,19 @@
+// larch-os — let the locally-seated active desktop user save network
+// connections for the whole machine (Wi-Fi networks joined from the desktop).
+// NetworkManager defaults settings.modify.system to auth_admin_keep, but
+// larch-os has no admin identity (see 99-larch-cups.rules), so:
+//   - COSMIC, which always saves a machine-wide connection, asked for an
+//     administrator password nobody has, and couldn't join a new network;
+//   - GNOME fell back to a connection private to the user, its password in
+//     that user's keyring — invisible to other users, and to another desktop
+//     without the same secret agent after a desktop switch.
+// With this, both desktops save Wi-Fi as a machine-wide connection, its
+// password in NetworkManager's own file (root-only, on LARCHCONF:
+// /var/lib/NetworkManager/system-connections), shared by every user and
+// desktop. The hostname (99-larch-hostname.rules) and global DNS stay locked.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.NetworkManager.settings.modify.system" &&
+        subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});

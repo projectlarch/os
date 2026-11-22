@@ -76,7 +76,7 @@ system/
                         rootfs-overlay/, remove.list, remove-files.list (optional, appended to the base's),
                         launcher.list (optional: the only .desktop entries shown in the app grid)
                         e.g. desktops/gnome/: GNOME + GDM, gdm/custom.conf, gschema override (dash: Files + Sawmill), launcher.list
-                        desktops/cosmic/: COSMIC + cosmic-greeter (greetd); remove.list drops cosmic-term,
+                        desktops/cosmic/: COSMIC + cosmic-greeter (greetd), oo7 (secret service, as GNOME's); remove.list drops cosmic-term,
                         cosmic-initial-setup and the SELinux policy greetd-selinux pulls in; /usr/share/cosmic
                         defaults (larch wallpaper; dock: Files, Sawmill, Settings)
   bootloader/           loader.conf + entries/ — published as the release file loader.tar (stage 11)
@@ -234,7 +234,7 @@ Weak dependencies are never installed, so the lists name everything. Every layer
 
 ### Time, language, misc
 
-**Swap is zram only** — no swap partition or file, so no hibernation: `zram-generator` with `rootfs-overlay/etc/systemd/zram-generator.conf` (zstd, half of RAM up to 8 GiB) and `sysctl.d/99-larch-zram.conf` (swappiness 180, page-cluster 0). Time and timezone are automatic: `chrony` (timedated finds it via `ntp-units.d`), and (GNOME) `desktops/gnome/rootfs-overlay/usr/share/glib-2.0/schemas/90_larch.gschema.override` turns on `automatic-timezone` and Location Services (gsd-datetime via geoclue). `99-larch-datetime.rules` lets the active local session call timedated; `99-larch-cups.rules` grants cups-pk-helper's actions. `99-larch-udisks.rules` grants udisks2's `open-device` (removable drives only, not `open-device-system`), so image-writer apps can write a USB stick. The image ships every locale precompiled (`glibc-all-langpacks`); the user's language/avatar persist in `/var/lib/AccountsService` on LARCHCONF's `/var/lib`.
+**Swap is zram only** — no swap partition or file, so no hibernation: `zram-generator` with `rootfs-overlay/etc/systemd/zram-generator.conf` (zstd, half of RAM up to 8 GiB) and `sysctl.d/99-larch-zram.conf` (swappiness 180, page-cluster 0). Time and timezone are automatic: `chrony` (timedated finds it via `ntp-units.d`), and (GNOME) `desktops/gnome/rootfs-overlay/usr/share/glib-2.0/schemas/90_larch.gschema.override` turns on `automatic-timezone` and Location Services (gsd-datetime via geoclue). `99-larch-datetime.rules` lets the active local session call timedated; `99-larch-cups.rules` grants cups-pk-helper's actions. `99-larch-network.rules` lets it save machine-wide network connections (NetworkManager's `settings.modify.system`, otherwise `auth_admin_keep`): COSMIC only creates those (it asked for an admin password nobody has), and GNOME otherwise falls back to a connection private to the user, its Wi-Fi password in that user's keyring, which another desktop doesn't see after a switch. Saved networks live in `/var/lib/NetworkManager/system-connections` on LARCHCONF, shared by every user and desktop. `99-larch-udisks.rules` grants udisks2's `open-device` (removable drives only, not `open-device-system`), so image-writer apps can write a USB stick. The image ships every locale precompiled (`glibc-all-langpacks`); the user's language/avatar persist in `/var/lib/AccountsService` on LARCHCONF's `/var/lib`.
 
 ### Clean boot (what the Fedora port had to fix)
 

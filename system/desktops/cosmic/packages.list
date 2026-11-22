@@ -24,5 +24,11 @@ gvfs-gphoto2
 gvfs-afc
 gvfs-nfs
 
+# The secret service (as GNOME's: oo7), unlocked at login by pam_oo7 (Fedora's
+# cosmic-greeter PAM file already lists it): saved passwords of apps, and the
+# keyring a desktop switch from GNOME carries over in ~/.local/share/keyrings.
+oo7-daemon
+pam_oo7
+
 # ── Portal ───────────────────────────────────────────────────────────────────
 xdg-desktop-portal-cosmic
