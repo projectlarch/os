@@ -110,6 +110,28 @@ grep -q '^publish-resolv-conf-dns-servers=no' /etc/avahi/avahi-daemon.conf
 # ── Read-only root: mount points must ship in the image ──────────────────────
 mkdir -p /conf /media /var/tmp
 
+# ── Busybox applets as commands ──────────────────────────────────────────────
+# Fedora's busybox (there for the initramfs builds) links none of its applets.
+# These harmless user tools get a command where no package provides one; a
+# package that ships one later (here or in a layer) replaces the link. Never
+# applets that manage users or packages, configure the network, run servers,
+# cron, an init or a shell (see CLAUDE.md's design principles).
+BUSYBOX_LINKS="clear reset resize ttysize script scriptreplay
+    vi ed patch strings xxd hd hexedit tree dos2unix unix2dos uuencode uudecode
+    ascii ts time usleep fsync
+    unzip ar lzma unlzma lzcat lzop lzopcat unlzop uncompress
+    bc dc sha3sum ipcalc
+    wget nc nslookup whois traceroute traceroute6 telnet tftp ftpget ftpput ssl_client
+    lsof lsscsi iostat mpstat nmeter powertop netstat getfattr setfattr fatattr
+    hostname dnsdomainname"
+log "Linking busybox applets"
+BB_APPLETS=$(busybox --list)
+for _a in $BUSYBOX_LINKS; do
+    printf '%s\n' "$BB_APPLETS" | grep -qx "$_a" \
+        || { echo "ERROR: busybox has no '$_a' applet (BUSYBOX_LINKS)" >&2; exit 1; }
+    [ -e "/usr/bin/$_a" ] || [ -L "/usr/bin/$_a" ] || ln -s busybox "/usr/bin/$_a"
+done
+
 # ── Lock root ────────────────────────────────────────────────────────────────
 passwd -l root >/dev/null
 

@@ -146,7 +146,8 @@ liberation-mono-fonts
 # The installer, updater and sys initramfs are assembled from this rootfs
 # (shared/build-lib.sh): busybox (static), dialog, mkfs.fat (dosfstools),
 # mkfs.ext4 and e2fsck (e2fsprogs), sfdisk/wipefs (util-linux), kmod, curl and
-# wpa_supplicant (above). systemd-boot-unsigned: stage 11 publishes its
+# wpa_supplicant (above). busybox also gives the image commands no package
+# provides (clear, vi, unzip, …: BUSYBOX_LINKS in setup-chroot.sh). systemd-boot-unsigned: stage 11 publishes its
 # systemd-bootx64.efi as the release file BOOTX64.EFI (remove.list drops it
 # from the images).
 busybox
