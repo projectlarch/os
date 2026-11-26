@@ -72,6 +72,14 @@ mesa-vulkan-drivers
 mesa-libEGL
 mesa-libgbm
 libglvnd-egl
+# OpenGL for AppImage apps (they use the host's GL): libOpenGL.so.0 (GLVND's
+# OpenGL dispatch, e.g. Luanti), libGL.so.1 + Mesa's GLX vendor (X11/Xwayland GL apps),
+# libGLESv2/libGLESv1_CM (OpenGL ES over EGL: SDL/Godot/Qt apps), libGLU.so.1 (older games)
+libglvnd-opengl
+libglvnd-glx
+mesa-libGL
+libglvnd-gles
+mesa-libGLU
 xorg-x11-server-Xwayland
 
 # ── Boot splash (OEM/firmware logo via BGRT) ─────────────────────────────────
