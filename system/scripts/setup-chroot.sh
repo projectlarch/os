@@ -35,10 +35,14 @@ rm -f /etc/selinux/config
 
 # ── PAM ──────────────────────────────────────────────────────────────────────
 # Fedora generates /etc/pam.d/system-auth & co. with authselect; "local" is the
-# plain-files profile (no sssd).
+# plain-files profile (no sssd). with-mdns4 puts nss-mdns in nsswitch's hosts
+# line, so <name>.local resolves: CUPS reaches AirPrint/shared printers by the
+# mDNS hostname Avahi resolves them to (as Fedora Workstation does).
 log "Selecting the authselect 'local' profile"
-authselect select local --force >/dev/null
+authselect select local with-mdns4 --force >/dev/null
 [ -e /etc/pam.d/system-auth ] || { echo "ERROR: no /etc/pam.d/system-auth" >&2; exit 1; }
+grep -q '^hosts:.*mdns4_minimal' /etc/authselect/nsswitch.conf \
+    || { echo "ERROR: nss-mdns missing from nsswitch.conf" >&2; exit 1; }
 
 # ── Nothing but the accounts written to /etc's overlay ───────────────────────
 # /etc's overlay layer on LARCHCONF is meant for the account files only.
